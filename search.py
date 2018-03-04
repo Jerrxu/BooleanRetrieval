@@ -7,9 +7,9 @@ import sys
 from nltk.stem.porter import *
 
 def usage():
-    print("usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results")
+    print("usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q queries-file -o output-file")
 
-dictionary_file = postings_file = file_of_queries = output_file_of_results = None
+dictionary_file = postings_file = queries_file = output_file = None
 	
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
@@ -23,26 +23,27 @@ for o, a in opts:
     elif o == '-p':
         postings_file = a
     elif o == '-q':
-        file_of_queries = a
+        queries_file = a
     elif o == '-o':
-        file_of_output = a
+        output_file = a
     else:
         assert False, "unhandled option"
 
-if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None :
+if dictionary_file == None or postings_file == None or queries_file == None or output_file == None:
     usage()
     sys.exit(2)
 
-
+print("hello pizza")
+print(output_file)
 
 stemmer = PorterStemmer()
 
 def _and(token1, token2):
     stem1 = stemmer.stem(token1.lower())
-    line1 = linecache.getline(postings_file, int(dictionary[stem1]) + 1)
+    line1 = linecache.getline(postings_file, int(dictionary[stem1]) + 2)
     list1 = line1.strip().split(' ')
     stem2 = stemmer.stem(token2.lower())
-    line2 = linecache.getline(postings_file, int(dictionary[stem2]) + 1)
+    line2 = linecache.getline(postings_file, int(dictionary[stem2]) + 2)
     list2 = line2.strip().split(' ')
     merged = []
     count1 = 0
@@ -52,28 +53,32 @@ def _and(token1, token2):
         int2 = int(list2[count2])
         if int1 == int2:
             merged.append(int1)
-            print(int1)
             count1 += 1
             count2 += 1
         elif int1 < int2:
             count1 += 1
         else:
             count2 += 1
-    return '\n\n'
-
+    return merged
 
 def _or(token1, token2):
     stem1 = stemmer.stem(token1.lower())
-    line1 = linecache.getline(postings_file, int(dictionary[stem1]) + 1)
+    line1 = linecache.getline(postings_file, int(dictionary[stem1]) + 2)
     list1 = line1.strip().split(' ')
     stem2 = stemmer.stem(token2.lower())
-    line2 = linecache.getline(postings_file, int(dictionary[stem2]) + 1)
+    line2 = linecache.getline(postings_file, int(dictionary[stem2]) + 2)
     list2 = line2.strip().split(' ')
-    merged = list1 + [i for i in list2 if i not in list1]
-    merged = [int(i) for i in merged]
+    merged = [int(i) for i in list1] + [int(i) for i in list2 if i not in list1]
     merged.sort()
     return merged
 
+
+def _not(token):
+    stem = stemmer.stem(token.lower())
+    line = linecache.getline(postings_file, int(dictionary[stem]) + 2)
+    listt = line.strip().split(' ')
+    merged = [int(i) for i in all_postings if i not in listt]
+    return merged
 
 dictionary = {}
 with open(dictionary_file, 'r') as dict_file:
@@ -81,11 +86,28 @@ with open(dictionary_file, 'r') as dict_file:
         line = line.replace('\n', '').split(' ')
         dictionary[line[0]] = line[1]
 
+all_postings = linecache.getline(postings_file, 1)
+all_postings = [i for i in all_postings.strip().split(' ')]
 
-with open(file_of_queries, 'r') as queries_file:
-    for line in queries_file:
-        line = line.strip().split(' ')
-        if line[1] == 'AND':
-            print(_and(line[0], line[2]))
-        elif line[1] == 'OR':
-            print(_or(line[0], line[2]))
+
+# writing to output file
+
+queries_file = open(queries_file, 'r')
+output_writer = open(output_file, 'w')
+for line in queries_file:
+    line = line.strip().split(' ')
+    result = None
+    if line[1] == 'AND':
+        result = _and(line[0], line[2])
+    elif line[1] == 'OR':
+        result = _or(line[0], line[2])
+    elif line[0] == 'NOT':
+        result = _not(line[1])
+
+    output = ''
+    for i in result:
+        output = "%s%s " % (output, str(i))
+    output_writer.write('%s\n' % output)
+
+queries_file.close()
+output_writer.close()
