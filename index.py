@@ -4,8 +4,8 @@ import math
 import os
 import re
 import sys
-from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.stem.porter import *
+from nltk.tokenize import word_tokenize
 
 # command:
 # python index.py -i "..\nltk_data\corpora\reuters\training\" -d dictionary.txt -p postings.txt
