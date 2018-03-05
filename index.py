@@ -36,11 +36,6 @@ if input_directory == None or output_file_postings == None or output_file_dictio
     sys.exit(2)
 
 
-
-# control parameters
-num_files_to_index = 100
-
-
 files_list = os.listdir(input_directory)
 files_list = [int(i) for i in files_list]
 files_list.sort()
@@ -48,6 +43,9 @@ dictionary = {}
 postings = []
 
 stemmer = PorterStemmer()
+
+# control parameters
+num_files_to_index = 4000
 
 files_indexed = []
 for i in range(0, num_files_to_index):
