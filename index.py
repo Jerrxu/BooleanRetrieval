@@ -45,7 +45,7 @@ postings = []
 stemmer = PorterStemmer()
 
 # control parameters
-num_files_to_index = 4000
+num_files_to_index = len(files_list)
 
 files_indexed = []
 for i in range(0, num_files_to_index):

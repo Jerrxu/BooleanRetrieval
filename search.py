@@ -155,7 +155,6 @@ def infix_to_prefix(expr):
             exit()
         #Pop the operator onto the output queue.
         results.append(ops.pop())
-
     return results
 
 if __name__ == '__main__':
@@ -176,7 +175,7 @@ Shunting-yard algorithm end
 
 """
 Main script start
-All code and all comments below are written by me, Huang Shan Xu, A0178639J
+All code and all comments below are written by me, Huang Shan Xu
 """
 
 stemmer = PorterStemmer()
@@ -209,7 +208,7 @@ def convert_to_list(thing):
     Argument:
         thing: either a list of int or str token
     Returns:
-        if thing is a token then returns postings list of token
+        if thing is a token then returns list of int containing postings list of token
         if thing is list then returns thing
     """
     if type(thing) is str:
@@ -270,46 +269,50 @@ with open(queries_file, 'r') as queries_reader:
     for line in queries_reader:
         line = line.strip()
         postfix_list = infix_to_prefix(line)
-        index = 0
-        # postfix_list initially contains only str tokens and operators.
-        # the list is traversed front-to-back and operations are executed.
-        # after each operation, the operand(s) and operators are removed from the list,
-        # and the result of the operation is inserted back to the list at that location
-        # the index is updated accordingly to read every item once
-        while len(postfix_list) > 1:
-            item = postfix_list[index]
-            if item == "NOT":
-                listt = convert_to_list(postfix_list[index-1])
-                print(listt)
-                result = _not(listt)
-                print(result)
-                del postfix_list[index-1]
-                del postfix_list[index-1]
-                postfix_list.insert(index-1, result)
-            elif item == "AND":
-                list1 = convert_to_list(postfix_list[index-1])
-                list2 = convert_to_list(postfix_list[index-2])
-                result = _and(list1, list2)
-                del postfix_list[index-2]
-                del postfix_list[index-2]
-                del postfix_list[index-2]
-                postfix_list.insert(index-2, result)
-                index -= 1
-            elif item == "OR":
-                list1 = convert_to_list(postfix_list[index-1])
-                list2 = convert_to_list(postfix_list[index-2])
-                result = _or(list1, list2)
-                del postfix_list[index-2]
-                del postfix_list[index-2]
-                del postfix_list[index-2]
-                postfix_list.insert(index-2, result)
-                index -= 1
-            else:   # a str token or list, advance by 1
-                index += 1
+        result_list = None
+        # special case of single token query
+        if len(postfix_list) == 1:
+            result_list = convert_to_list(postfix_list[0])
+        else:
+            # postfix_list initially contains only str tokens and operators.
+            # the list is traversed front-to-back and operations are executed.
+            # after each operation, the operand(s) and operators are removed from the list,
+            # and the result of the operation is inserted back to the list at that location
+            # the index is updated accordingly to read every item once
+            index = 0
+            while len(postfix_list) > 1:
+                item = postfix_list[index]
+                if item == "NOT":
+                    listt = convert_to_list(postfix_list[index-1])
+                    result = _not(listt)
+                    del postfix_list[index-1]
+                    del postfix_list[index-1]
+                    postfix_list.insert(index-1, result)
+                elif item == "AND":
+                    list1 = convert_to_list(postfix_list[index-1])
+                    list2 = convert_to_list(postfix_list[index-2])
+                    result = _and(list1, list2)
+                    del postfix_list[index-2]
+                    del postfix_list[index-2]
+                    del postfix_list[index-2]
+                    postfix_list.insert(index-2, result)
+                    index -= 1
+                elif item == "OR":
+                    list1 = convert_to_list(postfix_list[index-1])
+                    list2 = convert_to_list(postfix_list[index-2])
+                    result = _or(list1, list2)
+                    del postfix_list[index-2]
+                    del postfix_list[index-2]
+                    del postfix_list[index-2]
+                    postfix_list.insert(index-2, result)
+                    index -= 1
+                else:   # a str token or list, advance by 1
+                    index += 1
+            result_list = postfix_list[0]
         # write to output file
         output = ''
-        result_list = postfix_list[0]
         for i in result_list:
             output = "%s%s " % (output, str(i))
+        output = output.rstrip()
         output_writer.write('%s\n' % output)
 output_writer.close()
