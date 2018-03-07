@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# Matric. #: A0178639J
 import getopt
 import math
 import os
@@ -6,9 +7,6 @@ import re
 import sys
 from nltk.stem.porter import *
 from nltk.tokenize import word_tokenize
-
-# command:
-# python index.py -i ".\training" -d dictionary.txt -p postings.txt
 
 def usage():
     print("usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file")
@@ -36,6 +34,7 @@ if input_directory == None or output_file_postings == None or output_file_dictio
     sys.exit(2)
 
 
+# main
 files_list = os.listdir(input_directory)
 files_list = [int(i) for i in files_list]
 files_list.sort()
@@ -44,43 +43,56 @@ postings = []
 
 stemmer = PorterStemmer()
 
-# control parameters
-num_files_to_index = len(files_list)
+print("Generating dictionary and postings lists...")
 
 files_indexed = []
-for i in range(0, num_files_to_index):
+for i in range(0, len(files_list)):
     file_name = files_list[i]
     files_indexed.append(file_name)
     directory = "%s\\%s" % (input_directory, str(file_name))
+    data = None
     with open(directory, 'r') as read_file:
         data = read_file.read()
-        tokens = [stemmer.stem(tok.lower()) for tok in word_tokenize(data)]
-        for t in tokens:
-            if t in dictionary:
-                if file_name not in postings[dictionary[t]]:
-                    postings[dictionary[t]].append(file_name)
-            else:
-                index = len(dictionary)
-                dictionary[t] = index
-                postings.append([file_name])
+    tokens = [stemmer.stem(tok.lower()) for tok in word_tokenize(data)]
+    for t in tokens:
+        if t in dictionary:
+            if file_name not in dictionary[t]['l']:
+                dictionary[t]['l'].append(file_name)
+                dictionary[t]['c'] += 1
+        else:
+            index = len(dictionary)
+            dictionary[t] = {'c': 1, 'i': index, 'l': [file_name]}
+            # postings.append([file_name])
 
-print("%s files indexed. Writing to dictionary.txt..." % num_files_to_index)
+print("Files indexed. Generating skip pointers...")
 
-with open(output_file_dictionary, 'w') as out_dict:
-    for entry in dictionary:
-        out_dict.write("%s %s\n" % (entry, dictionary[entry]))
+for key, value in dictionary.items():
+    len_postings = value['c']
+    # don't add skip pointers if list is too short, since it won't help speed up by that much
+    if len_postings < 5:
+        continue
+    num_skip_ps = int(round(math.sqrt(len_postings), 0))
+    skip_length = math.ceil(len_postings/num_skip_ps) - 1
+    for j in range(0, num_skip_ps):
+        dictionary[key]['l'][j*skip_length] = "%s@%s" % (value['l'][j*skip_length],\
+            str(value['l'][skip_length*(j+1)]))
 
-print("dictionary.txt written successfully. Writing to postings.txt...")
+print("Skip pointers generated. Writing to dictionary.txt and postings.txt...")
 
-with open(output_file_postings, 'w') as out_postings:
-    for i in files_indexed:
-        out_postings.write("%s " % str(i))
-    out_postings.write("\n");
-    for line in postings:
-        # len_postings = len(line)
-        # num_skip_ps = math.sqrt(len_postings).round()
-        for item in line:
-            out_postings.write("%s " % str(item))
-        out_postings.write("\n");
+out_postings = open(output_file_postings, 'w')
+for i in files_indexed:
+    out_postings.write("%s " % str(i))
+out_postings.write("\n");
+out_dict = open(output_file_dictionary, 'w')
+for key, value in dictionary.items():
+    out_dict.write("%s %s\n" % (key, value['c']))
+    postings_list = ''
+    for item in value['l']:
+        postings_list = "%s %s" % (postings_list, str(item))
+    postings_list = postings_list.strip()
+    out_postings.write("%s\n" % postings_list);
 
-print("postings.txt written successfully. Done.")
+out_dict.close()
+out_postings.close()
+
+print("dictionary.txt and postings.txt written. Indexing done!")

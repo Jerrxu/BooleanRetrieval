@@ -1,13 +1,12 @@
 #!/usr/bin/python
+# Matric. #: A0178639J
 import getopt
 import linecache
+import math
 import nltk
 import re
 import sys
 from nltk.stem.porter import *
-
-# command:
-# python search.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
 
 def usage():
     print("usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q queries-file -o output-file")
@@ -172,19 +171,20 @@ Shunting-yard algorithm end
 
 
 
-
 """
 Main script start
-All code and all comments below are written by me, Huang Shan Xu
+All code and all comments below are written by me: A0178639J
 """
 
 stemmer = PorterStemmer()
 
 dictionary = {}
 with open(dictionary_file, 'r') as dict_file:
+    index = 0
     for line in dict_file:
-        line = line.replace('\n', '').split(' ')
-        dictionary[line[0]] = line[1]
+        line = line.strip().split(' ')
+        dictionary[line[0]] = index
+        index += 1
 
 all_postings = linecache.getline(postings_file, 1)
 all_postings = [int(i) for i in all_postings.strip().split(' ')]
@@ -194,19 +194,19 @@ def get_postings_list(token):
     Argument:
         token: a lowercased, stemmed word
     Returns:
-        list of int corresponding to the postings list of token
+        list of int and str corresponding to the postings list of token
     """
     stem = stemmer.stem(token.lower())
     if stem in dictionary:
         line = linecache.getline(postings_file, int(dictionary[stem]) + 2)
         line = line.strip().split(' ')
-        return [int(i) for i in line]
+        return [int(i) if len(i.split('@')) == 1 else i for i in line]
     return []
 
-def convert_to_list(thing):
+def get_list(thing):
     """
     Argument:
-        thing: either a list of int or str token
+        thing: either a list of int and str, or a str token
     Returns:
         if thing is a token then returns list of int containing postings list of token
         if thing is list then returns thing
@@ -216,38 +216,70 @@ def convert_to_list(thing):
     elif type(thing) is list:
         return thing
 
+def remove_skip_ps(listt):
+    """
+    Argument:
+        listt: list of int and str
+    Returns:
+        list of int with the indices extracted out of nodes with a skip pointer
+    """
+    return [int(i.split('@')[0]) if type(i) is str else i for i in listt]
+
 def _and(list1, list2):
     """
     Arguments:
-        list1: list of int
-        list2: list of int
+        list1: list of int and str
+        list2: list of int and str
     Returns:
         list of int containing set intersection of elements of list1 and list2
     """
+    len1 = len(list1)
+    len2 = len(list2)
+    skip_len1 = 1 if len1 < 5 else math.ceil(len1/int(round(math.sqrt(len1), 0))) - 1
+    skip_len2 = 1 if len2 < 5 else math.ceil(len2/int(round(math.sqrt(len2), 0))) - 1
     merged = []
     count1 = 0
     count2 = 0
-    while count1 != len(list1) and count2 != len(list2):
-        int1 = list1[count1]
-        int2 = list2[count2]
+    while count1 < len1 and count2 < len2:
+        item1 = list1[count1]
+        item2 = list2[count2]
+        int1 = None
+        int2 = None
+        if type(item1) is str:
+            int1 = int(item1.split('@')[0])
+        else:
+            int1 = item1
+        if type(item2) is str:
+            int2 = int(item2.split('@')[0])
+        else:
+            int2 = item2
+
         if int1 == int2:
             merged.append(int1)
             count1 += 1
             count2 += 1
         elif int1 < int2:
-            count1 += 1
-        else:
-            count2 += 1
+            if type(item1) is str and int(item1.split('@')[1]) <= int2:
+                count1 += skip_len1
+            else:
+                count1 += 1
+        elif int1 > int2:
+            if type(item2) is str and int(item2.split('@')[1]) <= int1:
+                count2 += skip_len2
+            else:
+                count2 += 1
     return merged
 
 def _or(list1, list2):
     """
     Arguments:
-        list1: list of int
-        list2: list of int
+        list1: list of int and str
+        list2: list of int and str
     Returns:
         list of int containing set union of elements of list1 and list2
     """
+    list1 = remove_skip_ps(list1)
+    list2 = remove_skip_ps(list2)
     merged = list1 + [i for i in list2 if i not in list1]
     merged.sort()
     return merged
@@ -255,10 +287,11 @@ def _or(list1, list2):
 def _not(listt):
     """
     Argument:
-        listt: list of int
+        listt: list of int and str
     Returns:
         list of int containing set difference of elements of all_postings minus listt
     """
+    listt = remove_skip_ps(listt)
     merged = [i for i in all_postings if i not in listt]
     return merged
 
@@ -268,29 +301,32 @@ output_writer = open(output_file, 'w')
 with open(queries_file, 'r') as queries_reader:
     for line in queries_reader:
         line = line.strip()
+        print("executing query: %s" % line)
         postfix_list = infix_to_prefix(line)
         result_list = None
         # special case of single token query
         if len(postfix_list) == 1:
-            result_list = convert_to_list(postfix_list[0])
+            result_list = remove_skip_ps(get_list(postfix_list[0]))
         else:
             # postfix_list initially contains only str tokens and operators.
-            # the list is traversed front-to-back and operations are executed.
-            # after each operation, the operand(s) and operators are removed from the list,
-            # and the result of the operation is inserted back to the list at that location
-            # the index is updated accordingly to read every item once
+            # The list is traversed front-to-back and operations are executed.
+            # After each operation, the operand(s) and operators are removed from the list,
+            # and the result of the operation is inserted back to the list at that location.
+            # The index is updated accordingly to read every item once.
             index = 0
             while len(postfix_list) > 1:
                 item = postfix_list[index]
                 if item == "NOT":
-                    listt = convert_to_list(postfix_list[index-1])
+                    listt = get_list(postfix_list[index-1])
                     result = _not(listt)
                     del postfix_list[index-1]
                     del postfix_list[index-1]
                     postfix_list.insert(index-1, result)
                 elif item == "AND":
-                    list1 = convert_to_list(postfix_list[index-1])
-                    list2 = convert_to_list(postfix_list[index-2])
+                    item1 = postfix_list[index-1]
+                    item2 = postfix_list[index-2]
+                    list1 = get_list(item1)
+                    list2 = get_list(item2)
                     result = _and(list1, list2)
                     del postfix_list[index-2]
                     del postfix_list[index-2]
@@ -298,8 +334,8 @@ with open(queries_file, 'r') as queries_reader:
                     postfix_list.insert(index-2, result)
                     index -= 1
                 elif item == "OR":
-                    list1 = convert_to_list(postfix_list[index-1])
-                    list2 = convert_to_list(postfix_list[index-2])
+                    list1 = get_list(postfix_list[index-1])
+                    list2 = get_list(postfix_list[index-2])
                     result = _or(list1, list2)
                     del postfix_list[index-2]
                     del postfix_list[index-2]
